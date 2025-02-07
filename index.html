@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>삼차방정식 x^3=1, x^3=-1의 허근의 성질</title>
+  <!-- MathJax 로드 -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+
+  <style>
+    /* 흑백 테마 */
+    body {
+      background-color: #ffffff;
+      color: #000000;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    h1, h2, h3, h4, h5, h6, p, div, span, input, select, button {
+      color: #000000;
+      background-color: #ffffff;
+    }
+    /* 중앙 배치: 이름 입력 칸 */
+    #nameInputContainer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 40px;
+    }
+    #nameInputContainer input {
+      margin-left: 8px;
+    }
+    /* 전체 컨테이너 */
+    #container {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    /* 난이도 선택 영역 */
+    #difficultyContainer {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 16px;
+    }
+    /* 에너지바 (시간 제한) */
+    #energyBarContainer {
+      width: 100%;
+      background-color: #000000;
+      height: 20px;
+      margin-top: 16px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    #energyBar {
+      background-color: #ffffff;
+      height: 100%;
+      width: 100%; /* 초기엔 풀로 */
+      transition: width 0.2s linear;
+    }
+    /* 문제 표시 */
+    #quizArea {
+      margin-top: 20px;
+    }
+    .questionText {
+      margin-bottom: 16px;
+      line-height: 1.4;
+      font-weight: bold;
+    }
+    .choicesContainer {
+      margin-bottom: 16px;
+    }
+    .choiceItem {
+      margin-bottom: 6px;
+    }
+    /* 결과/피드백 표시 */
+    #feedback {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    /* 전체 시간 및 기회 표시 */
+    #statusBar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    /* '점수 전송' 버튼, 서버 응답 */
+    #submitScoreContainer {
+      margin-top: 20px;
+      text-align: center;
+    }
+    #response {
+      margin-top: 10px;
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+
+<div id="container">
+
+  <h1>삼차방정식 x^3=1, x^3=-1의 허근의 성질</h1>
+
+  <!-- 이름 입력(중앙) -->
+  <div id="nameInputContainer">
+    <label for="playerName">이름: </label>
+    <input type="text" id="playerName" placeholder="이름을 입력하세요"/>
+  </div>
+
+  <!-- 난이도 선택 -->
+  <div id="difficultyContainer">
+    <label for="difficultySelect">난이도: </label>
+    <select id="difficultySelect">
+      <option value="hardest">최상</option>
+      <option value="hard">상</option>
+      <option value="medium">중</option>
+      <option value="easy">하</option>
+    </select>
+  </div>
+
+  <!-- 시작 버튼 -->
+  <div style="text-align:center; margin-top:20px;">
+    <button onclick="startGame()">게임 시작</button>
+  </div>
+
+  <!-- 전체 시간, 남은 기회, 점수 -->
+  <div id="statusBar" style="display:none;">
+    <span id="timeDisplay">전체시간: 0초</span>
+    <span id="lifeDisplay">남은 기회: 3</span>
+    <span id="scoreDisplay">점수: 0</span>
+  </div>
+
+  <!-- 에너지바 (시간 제한 시각화) -->
+  <div id="energyBarContainer" style="display:none;">
+    <div id="energyBar"></div>
+  </div>
+
+  <!-- 퀴즈 영역 -->
+  <div id="quizArea"></div>
+
+  <!-- 결과/피드백 -->
+  <div id="feedback"></div>
+
+  <!-- 점수 전송 버튼 -->
+  <div id="submitScoreContainer" style="display:none;">
+    <button onclick="submitScore()">점수 전송</button>
+    <div id="response"></div>
+  </div>
+
+</div>
+
+<script>
+/* --------------------------------------------------------
+   전역 변수 및 설정
+-------------------------------------------------------- */
+
+/* 서버로 전송할 때 사용하는 함수 */
+function saveData(game, name, score, elapsedTime) {
+    const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+    const requestData = {
+        game,
+        name,
+        score: parseInt(score, 10),
+        elapsedTime: parseInt(elapsedTime, 10)
+    };
+
+    fetch(FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(async (response) => {
+        const responseData = await response.json();
+        if (response.ok) {
+            document.getElementById('response').innerText = 
+                "성공: " + JSON.stringify(responseData, null, 2);
+        } else {
+            document.getElementById('response').innerText = 
+                "오류: " + JSON.stringify(responseData, null, 2);
+        }
+    })
+    .catch((error) => {
+        console.error('요청 실패:', error);
+        document.getElementById('response').innerText = 
+            "네트워크 오류: " + error.message;
+    });
+}
+
+/* 문제 데이터 (순서는 그대로, 답안 순서나 정답 인덱스도 수정 금지!)
+   => 하지만 표시할 때는 무작위 순서로 낼 예정.
+   "condition": 조건 부분,
+   "question": 문제 부분,
+   "choices": [ '보기1','보기2','보기3','보기4' ],
+   "correct": 정답(0-based)
+*/
+const allQuestions = [
+  // ===== x^3=1  (원래 43문항 중 문제 15, 22, 37 삭제됨) =====
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^3\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^9\\)의 값을 구하시오.",
+    choices: ["\\(0\\)", "\\(-1\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{123}\\)의 값을 구하시오.",
+    choices: ["\\(2\\)", "\\(-1\\)", "\\(0\\)", "\\(1\\)"],
+    correct: 3
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^4 + \\omega^2 + 1\\)의 값을 구하시오.",
+    choices: ["\\(1\\)", "\\(0\\)", "\\(-1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^2 + \\omega + 1\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(1\\)", "\\(0\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\omega^3 + \\omega^5\\)의 값을 구하시오.",
+    choices: ["\\(0\\)", "\\(-1\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\omega^2 + \\omega^3\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(2\\)", "\\(1\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\overline{\\omega}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega \\times \\overline{\\omega}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\dfrac{1}{\\omega}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{20} + \\omega^{10} + 1\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^5 + \\omega^4 + \\omega^3 + \\omega^2 + \\omega + 1\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(1\\)", "\\(0\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(1 + \\omega + \\omega^2 + \\omega^3 + \\dots + \\omega^{12}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\dfrac{1}{1-\\omega} + \\dfrac{1}{1-\\overline{\\omega}}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\((1+\\omega)(1+\\omega^2)\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{10} + \\dfrac{1}{\\omega^{10}}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(1 + \\dfrac{1}{\\omega} + \\dfrac{1}{\\omega^2} + \\dots + \\dfrac{1}{\\omega^8}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{100} + \\dfrac{1}{\\omega^{100}}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\dfrac{1}{\\omega} + \\overline{\\omega} + \\dfrac{1}{\\overline{\\omega}}\\)의 값을 구하시오.",
+    choices: ["\\(-2\\)", "\\(-1\\)", "\\(0\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\dfrac{1}{\\omega} + \\dfrac{1}{\\omega^2}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\dfrac{\\omega^2}{1+\\omega^2} + \\dfrac{\\overline{\\omega^2}}{1+\\overline{\\omega^2}}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\((\\omega + \\dfrac{1}{\\omega}) + (\\omega^2 + \\dfrac{1}{\\omega^2}) + \\dots + (\\omega^{11} + \\dfrac{1}{\\omega^{11}})\\)의 값을 구하시오.",
+    choices: ["\\(-2\\)", "\\(-1\\)", "\\(0\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(1 + \\dfrac{1}{\\omega} + \\dfrac{1}{\\omega^2}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(1 + \\omega + \\omega^2 + \\dots + \\omega^{2014} + \\omega^{2015}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(1 + \\omega^2 + \\omega^4 + \\omega^6 + \\dots + \\omega^{100}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+
+  // ===== x^3=-1  (문항 46번 이후) =====
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^3\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{18}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\overline{\\omega}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega \\cdot \\overline{\\omega}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^3 - (\\omega^2 - \\omega)\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\dfrac{1}{\\omega}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\dfrac{1-\\omega}{\\omega^2} + \\dfrac{1+\\omega^2}{\\omega}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\dfrac{1}{1+\\omega} + \\dfrac{1}{1+\\omega}\\) (예시)",
+    choices: ["\\(-1\\)", "\\(1\\)", "\\(2\\)", "\\(0\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{10} - \\omega^5 + 1\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^2 + \\dfrac{1}{\\omega^2}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\((1-\\omega)(1+\\omega^2)\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^2 - \\omega + 1\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{20} + \\omega^{10} + 1\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\dfrac{\\overline{\\omega} - 1}{\\omega} + \\dfrac{\\omega - 1}{\\omega}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^5 + \\omega^4 + \\omega^3 + \\omega^2 + \\omega + 1\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(1 - \\omega + \\omega^2 - \\omega^3 + \\omega^4 - \\omega^5 + \\omega^6\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{123}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\dfrac{\\omega^2}{1-\\omega} + \\dfrac{\\overline{\\omega}}{1+(\\overline{\\omega})^2}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    // 수정: 계산 결과 -1 + 1 = 0이므로 정답은 "\\(0\\)" (인덱스 1)
+    correct: 1
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^2 + \\omega^4 + \\omega^6 + \\omega^8 + \\omega^{10}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\dfrac{\\overline{\\omega}}{\\omega} + \\dfrac{\\omega}{\\overline{\\omega}}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\dfrac{1}{\\omega} + \\omega^3 + \\dfrac{1}{\\omega^3}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 0
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^5 + \\omega^3 + \\omega + 1\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega^{2015} + \\bigl(\\overline{\\omega}\\bigr)^{2015}\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 2
+  },
+  {
+    condition: "\\(x^3=-1\\)의 한 허근 \\(\\omega\\)",
+    question: "\\(\\omega + \\overline{\\omega} + \\omega^2 + (\\overline{\\omega})^2\\)의 값을 구하시오.",
+    choices: ["\\(-1\\)", "\\(0\\)", "\\(1\\)", "\\(2\\)"],
+    correct: 1
+  }
+];
+
+/* 난이도별 제한시간(초), 문제당 점수 */
+const TIME_LIMITS = {
+  hardest: 20,
+  hard: 30,
+  medium: 40,
+  easy: Infinity
+};
+const SCORES = {
+  hardest: 20,
+  hard: 15,
+  medium: 13,
+  easy: 10
+};
+
+/* 현재 게임 상태 */
+let nameValue = "";
+let difficultyValue = "easy";
+let timeLimit = Infinity;  // 현재 문제당 제한시간
+let questionScore = 10;    // 현재 난이도에 따른 문제당 점수
+let currentQuestionIndex = 0;
+let usedIndices = [];      // 셔플된 질문 인덱스 목록
+let currentLife = 3;
+let currentScore = 0;
+let totalTime = 0; // 전체 진행 시간(초)
+let timerInterval = null;  // 전체 시간 + 에너지바 갱신용
+let energyWidth = 100;     // 에너지바 (백분율)
+let isEnergyDepleting = false;
+let energyInterval = null; // 문제당 제한 시간 타이머
+let gameStarted = false;
+
+/* --------------------------------------------------------
+   유틸: 배열 셔플
+-------------------------------------------------------- */
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i+1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+/* --------------------------------------------------------
+   게임 시작
+-------------------------------------------------------- */
+function startGame() {
+  const nameInput = document.getElementById("playerName");
+  nameValue = nameInput.value.trim();
+  if(!nameValue) {
+    alert("이름을 입력하세요!");
+    return;
+  }
+
+  difficultyValue = document.getElementById("difficultySelect").value;
+  timeLimit = TIME_LIMITS[difficultyValue];
+  questionScore = SCORES[difficultyValue];
+
+  // 상태 초기화
+  currentQuestionIndex = 0;
+  currentLife = 3;
+  currentScore = 0;
+  totalTime = 0;
+  gameStarted = true;
+
+  // 문제 인덱스 전부 모아서 셔플
+  usedIndices = [...Array(allQuestions.length).keys()];
+  shuffleArray(usedIndices);
+
+  // UI 업데이트
+  document.getElementById("statusBar").style.display = "flex";
+  document.getElementById("energyBarContainer").style.display = (timeLimit===Infinity) ? "none":"block";
+  document.getElementById("quizArea").innerHTML = "";
+  document.getElementById("feedback").innerText = "";
+  document.getElementById("submitScoreContainer").style.display = "none";
+
+  updateStatusBar();
+
+  // 전체 시간 타이머 시작
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    totalTime++;
+    updateStatusBar();
+  }, 1000);
+
+  // 첫 문제 표시
+  showQuestion();
+}
+
+/* --------------------------------------------------------
+   문제 표시
+-------------------------------------------------------- */
+function showQuestion() {
+  // 기회가 없거나 인덱스 초과이면 게임 종료 처리
+  if(currentLife <= 0 || currentQuestionIndex >= allQuestions.length) {
+    endGame();
+    return;
+  }
+
+  const qIndex = usedIndices[currentQuestionIndex];
+  const qData = allQuestions[qIndex];
+
+  // 문제, 보기 표시
+  const quizArea = document.getElementById("quizArea");
+  quizArea.innerHTML = `
+    <div class="questionText">
+      조건: \\(${qData.condition}\\)<br/>
+      문제: \\(${qData.question}\\)
+    </div>
+    <div class="choicesContainer">
+      ${qData.choices.map((ch,idx)=>{
+        return `<div class="choiceItem">
+                  <input type="radio" name="choice" id="choice${idx}" value="${idx}">
+                  <label for="choice${idx}">\\(${ch}\\)</label>
+                </div>`;
+      }).join("")}
+    </div>
+    <button onclick="checkAnswer()">제출</button>
+  `;
+
+  document.getElementById("feedback").innerText = "";
+
+  // MathJax 렌더링
+  MathJax.typeset();
+
+  // 에너지바 리셋
+  if(timeLimit!==Infinity) {
+    if(energyInterval) clearInterval(energyInterval);
+    energyWidth = 100;
+    document.getElementById("energyBar").style.width = energyWidth + "%";
+    isEnergyDepleting = true;
+    energyInterval = setInterval(depleteEnergy, 1000);
+  }
+}
+
+/* --------------------------------------------------------
+   정답 확인
+-------------------------------------------------------- */
+function checkAnswer() {
+  // 라디오 선택 확인
+  const selected = document.querySelector('input[name="choice"]:checked');
+  if(!selected) {
+    alert("답안을 선택하세요!");
+    return;
+  }
+
+  // 시간 타이머 정지
+  stopEnergyTimer();
+
+  const selectedValue = parseInt(selected.value, 10);
+  const qIndex = usedIndices[currentQuestionIndex];
+  const qData = allQuestions[qIndex];
+
+  // 정답 체크
+  if(selectedValue === qData.correct) {
+    // 정답
+    currentScore += questionScore;
+    document.getElementById("feedback").innerText = "정답입니다!";
+  } else {
+    // 틀림
+    currentLife--;
+    document.getElementById("feedback").innerText = 
+      "틀렸습니다. 정답은 " + (qData.correct+1) + "번 입니다.";
+  }
+
+  updateStatusBar();
+
+  // 3번 틀리면 종료
+  if(currentLife <= 0) {
+    endGame();
+    return;
+  }
+
+  // 다음 문제로
+  currentQuestionIndex++;
+  if(currentQuestionIndex >= allQuestions.length) {
+    endGame();
+  } else {
+    setTimeout(()=>{
+      document.getElementById("feedback").innerText = "";
+      showQuestion();
+    }, 1200);
+  }
+}
+
+/* --------------------------------------------------------
+   에너지바 소모
+-------------------------------------------------------- */
+function depleteEnergy() {
+  if(!isEnergyDepleting) return;
+  if(timeLimit === Infinity) return; // 무제한이면
+  // 1초마다 100/timeLimit 만큼 감소
+  const decreaseAmount = 100/timeLimit;
+  energyWidth -= decreaseAmount;
+  if(energyWidth < 0) energyWidth = 0;
+  document.getElementById("energyBar").style.width = energyWidth + "%";
+
+  if(energyWidth <= 0) {
+    // 시간 소진 -> 기회 1 감소
+    currentLife--;
+    updateStatusBar();
+    stopEnergyTimer();
+    if(currentLife<=0) {
+      endGame();
+      return;
+    }
+    // 메시지 표시
+    document.getElementById("feedback").innerText = 
+      "시간 초과! (기회 1 감소)";
+    // 다음 문제
+    currentQuestionIndex++;
+    setTimeout(()=>{
+      document.getElementById("feedback").innerText = "";
+      if(currentQuestionIndex >= allQuestions.length) {
+        endGame();
+      } else {
+        showQuestion();
+      }
+    }, 1200);
+  }
+}
+
+/* --------------------------------------------------------
+   에너지바 타이머 멈추기
+-------------------------------------------------------- */
+function stopEnergyTimer() {
+  isEnergyDepleting = false;
+  if(energyInterval) {
+    clearInterval(energyInterval);
+    energyInterval = null;
+  }
+}
+
+/* --------------------------------------------------------
+   상태바 업데이트
+-------------------------------------------------------- */
+function updateStatusBar() {
+  document.getElementById("timeDisplay").innerText = `전체시간: ${totalTime}초`;
+  document.getElementById("lifeDisplay").innerText = `남은 기회: ${currentLife}`;
+  document.getElementById("scoreDisplay").innerText = `점수: ${currentScore}`;
+}
+
+/* --------------------------------------------------------
+   게임 종료
+-------------------------------------------------------- */
+function endGame() {
+  gameStarted = false;
+  stopEnergyTimer();
+  if(timerInterval) clearInterval(timerInterval);
+
+  const quizArea = document.getElementById("quizArea");
+  quizArea.innerHTML = "게임이 종료되었습니다.";
+
+  document.getElementById("feedback").innerText = 
+    `최종 점수: ${currentScore}`;
+
+  // 점수 전송 버튼 표시
+  document.getElementById("submitScoreContainer").style.display = "block";
+}
+
+/* --------------------------------------------------------
+   점수 전송
+-------------------------------------------------------- */
+function submitScore() {
+  saveData(
+    "삼차방정식 x^3=1, x^3=-1의 허근의 성질",
+    nameValue,
+    currentScore,
+    totalTime
+  );
+}
+</script>
+
+</body>
+</html>
